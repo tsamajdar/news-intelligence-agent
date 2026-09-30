@@ -8,14 +8,14 @@ import time
 # 1. PAGE CONFIGURATION & CLIENT SETUP
 # -------------------------------------------------
 st.set_page_config(page_title="News Intelligence Agent", layout="wide")
+
+st.set_page_config(page_title="News Intelligence Agent", layout="wide")
 api_key = st.secrets.get("GEMINI_API_KEY")
 
 if not api_key:
     st.error("Gemini API Key not found! Please configure it in Streamlit secrets.")
 else:
     client = genai.Client(api_key=api_key)
-# Initialize the Gemini client (Make sure your API key is set in environment variables or secrets)
-# client = genai.Client(api_key="YOUR_API_KEY") 
 
 # -------------------------------------------------
 # 2. HELPER FUNCTIONS
@@ -26,7 +26,7 @@ def extract_text(resp):
     return str(resp).strip()
 
 def llm(prompt, retries=2):
-    for _ in range(retries):
+    for attempt in range(retries):
         try:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
@@ -35,7 +35,13 @@ def llm(prompt, retries=2):
             text = extract_text(response)
             if text:
                 return text
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG API Error on attempt {attempt+1}: {e}")
+            st.error(f"Detailed API Error: {e}")
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                time.sleep(3 * (attempt + 1))  
+            else:
+                time.sleep(1)
             time.sleep(1)
     return ""
 
@@ -69,6 +75,7 @@ if st.button("Generate Intelligence Brief", type="primary"):
             Make it look like raw scraped web text or RSS feed data so it can be cleaned and deduplicated.
             """
             raw_blob = llm(fetch_prompt)
+            time.sleep(1.5)
             
             if not raw_blob:
                 st.error("Failed to generate raw data. Please check your API key or connection.")
@@ -90,13 +97,17 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 RAW: {raw_blob}
                 """
                 resp1 = llm(call1_prompt)
+                time.sleep(1.5)
                 match1 = re.search(r'\[\s*\{.*\}\s*\]', resp1, re.DOTALL)
                 clean_items = json.loads(match1.group(0)) if match1 else safe_json(resp1)
+                
                 if clean_items is None:
                     clean_items = []
                 if isinstance(clean_items, dict):
                     for k, v in clean_items.items():
-                        if isinstance(v, list): clean_items = v; break
+                        if isinstance(v, list): 
+                            clean_items = v
+                            break
 
                 # STEP 3: Call 2 — Summarize
                 call2_prompt = f"""
@@ -106,13 +117,17 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 INPUT: {json.dumps(clean_items)}
                 """
                 resp2 = llm(call2_prompt)
+                time.sleep(1.5)
                 match2 = re.search(r'\[\s*\{.*\}\s*\]', resp2, re.DOTALL)
                 news_cards = json.loads(match2.group(0)) if match2 else safe_json(resp2)
-                if not isinstance(news_cards, list):
+                
+                if news_cards is None:
                     news_cards = []
                 if isinstance(news_cards, dict):
                     for k, v in news_cards.items():
-                        if isinstance(v, list): news_cards = v; break
+                        if isinstance(v, list): 
+                            news_cards = v
+                            break
 
                 # STEP 4: Call 3 — Score Urgency & Impact
                 call3_prompt = f"""
@@ -124,13 +139,17 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 INPUT: {json.dumps(news_cards)}
                 """
                 resp3 = llm(call3_prompt)
+                time.sleep(1.5)
                 match3 = re.search(r'\[\s*\{.*\}\s*\]', resp3, re.DOTALL)
                 scores = json.loads(match3.group(0)) if match3 else safe_json(resp3)
-                if not isinstance(scores, list):
+                
+                if scores is None:
                     scores = []
                 if isinstance(scores, dict):
                     for k, v in scores.items():
-                        if isinstance(v, list): scores = v; break
+                        if isinstance(v, list): 
+                            scores = v
+                            break
 
                 # -------------------------------------------------
                 # 4. RENDER RESULTS IN STREAMLIT UI
