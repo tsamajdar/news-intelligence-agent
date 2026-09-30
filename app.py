@@ -92,7 +92,8 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 resp1 = llm(call1_prompt)
                 match1 = re.search(r'\[\s*\{.*\}\s*\]', resp1, re.DOTALL)
                 clean_items = json.loads(match1.group(0)) if match1 else safe_json(resp1)
-                
+                if clean_items is None:
+                    clean_items = []
                 if isinstance(clean_items, dict):
                     for k, v in clean_items.items():
                         if isinstance(v, list): clean_items = v; break
@@ -107,7 +108,8 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 resp2 = llm(call2_prompt)
                 match2 = re.search(r'\[\s*\{.*\}\s*\]', resp2, re.DOTALL)
                 news_cards = json.loads(match2.group(0)) if match2 else safe_json(resp2)
-                
+                if not isinstance(news_cards, list):
+                    news_cards = []
                 if isinstance(news_cards, dict):
                     for k, v in news_cards.items():
                         if isinstance(v, list): news_cards = v; break
@@ -124,7 +126,8 @@ if st.button("Generate Intelligence Brief", type="primary"):
                 resp3 = llm(call3_prompt)
                 match3 = re.search(r'\[\s*\{.*\}\s*\]', resp3, re.DOTALL)
                 scores = json.loads(match3.group(0)) if match3 else safe_json(resp3)
-                
+                if not isinstance(scores, list):
+                    scores = []
                 if isinstance(scores, dict):
                     for k, v in scores.items():
                         if isinstance(v, list): scores = v; break
